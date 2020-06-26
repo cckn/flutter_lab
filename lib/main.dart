@@ -1,86 +1,142 @@
-// Copyright 2019 The Flutter Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
-// ignore_for_file: public_member_api_docs
+import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:share/share.dart';
+import 'package:flutter_email_sender/flutter_email_sender.dart';
+import 'package:image_picker/image_picker.dart';
 
-void main() {
-  runApp(DemoApp());
-}
+void main() => runApp(MyApp());
 
-class DemoApp extends StatefulWidget {
+class MyApp extends StatefulWidget {
   @override
-  DemoAppState createState() => DemoAppState();
+  _MyAppState createState() => _MyAppState();
 }
 
-class DemoAppState extends State<DemoApp> {
-  String text = '';
-  String subject = '';
+class _MyAppState extends State<MyApp> {
+  List<String> attachments = [];
+  bool isHTML = false;
+
+  final _recipientController = TextEditingController(
+    text: 'example@example.com',
+  );
+
+  final _subjectController = TextEditingController(text: 'The subject');
+
+  final _bodyController = TextEditingController(
+    text: 'Mail body.',
+  );
+
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  Future<void> send() async {
+    final Email email = Email(
+      body: _bodyController.text,
+      subject: _subjectController.text,
+      recipients: [_recipientController.text],
+      attachmentPaths: attachments,
+      isHTML: isHTML,
+    );
+
+    String platformResponse;
+
+    try {
+      await FlutterEmailSender.send(email);
+      platformResponse = 'success';
+    } catch (error) {
+      platformResponse = error.toString();
+    }
+
+    if (!mounted) return;
+
+    _scaffoldKey.currentState.showSnackBar(SnackBar(
+      content: Text(platformResponse),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Share Plugin Demo',
+      theme: ThemeData(primaryColor: Colors.red),
       home: Scaffold(
+        key: _scaffoldKey,
         appBar: AppBar(
-          title: const Text('Share Plugin Demo'),
+          title: Text('Plugin example app'),
+          actions: <Widget>[
+            IconButton(
+              onPressed: send,
+              icon: Icon(Icons.send),
+            )
+          ],
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Share text:',
-                  hintText: 'Enter some text and/or link to share',
+        body: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              // mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: TextField(
+                    controller: _recipientController,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Recipient',
+                    ),
+                  ),
                 ),
-                maxLines: 2,
-                onChanged: (String value) => setState(() {
-                  text = value;
-                }),
-              ),
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Share subject:',
-                  hintText: 'Enter subject to share (optional)',
+                Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: TextField(
+                    controller: _subjectController,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Subject',
+                    ),
+                  ),
                 ),
-                maxLines: 2,
-                onChanged: (String value) => setState(() {
-                  subject = value;
-                }),
-              ),
-              const Padding(padding: EdgeInsets.only(top: 24.0)),
-              Builder(
-                builder: (BuildContext context) {
-                  return RaisedButton(
-                    child: const Text('Share'),
-                    onPressed: text.isEmpty
-                        ? null
-                        : () {
-                            // A builder is used to retrieve the context immediately
-                            // surrounding the RaisedButton.
-                            //
-                            // The context's `findRenderObject` returns the first
-                            // RenderObject in its descendent tree when it's not
-                            // a RenderObjectWidget. The RaisedButton's RenderObject
-                            // has its position and size after it's built.
-                            final RenderBox box = context.findRenderObject();
-                            Share.share(text,
-                                subject: subject,
-                                sharePositionOrigin:
-                                    box.localToGlobal(Offset.zero) & box.size);
-                          },
-                  );
-                },
-              ),
-            ],
+                Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: TextField(
+                    controller: _bodyController,
+                    maxLines: 10,
+                    decoration: InputDecoration(
+                        labelText: 'Body', border: OutlineInputBorder()),
+                  ),
+                ),
+                CheckboxListTile(
+                  title: Text('HTML'),
+                  onChanged: (bool value) {
+                    setState(() {
+                      isHTML = value;
+                    });
+                  },
+                  value: isHTML,
+                ),
+                ...attachments.map(
+                      (item) => Text(
+                    item,
+                    overflow: TextOverflow.fade,
+                  ),
+                ),
+              ],
+            ),
           ),
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          icon: Icon(Icons.camera),
+          label: Text('Add Image'),
+          onPressed: _openImagePicker,
         ),
       ),
     );
+  }
+
+  void _openImagePicker() async {
+    File pick = await ImagePicker.pickImage(source: ImageSource.gallery);
+    setState(() {
+      attachments.add(pick.path);
+    });
   }
 }
