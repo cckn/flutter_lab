@@ -115,7 +115,7 @@ class _MyAppState extends State<MyApp> {
                   value: isHTML,
                 ),
                 ...attachments.map(
-                      (item) => Text(
+                  (item) => Text(
                     item,
                     overflow: TextOverflow.fade,
                   ),
